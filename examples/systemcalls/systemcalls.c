@@ -11,11 +11,18 @@ bool do_system(const char *cmd)
 {
 
 /*
- * TODO  add your code here
+ *  TODO: DONE.
  *  Call the system() function with the command set in the cmd
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
+
+    int ret;
+    ret = system(cmd);
+    if (ret != 0) {
+        perror("System call returned with a failure\n");
+        return false;
+    }
 
     return true;
 }
@@ -49,8 +56,10 @@ bool do_exec(int count, ...)
     // and may be removed
     command[count] = command[count];
 
+    va_end(args);
+
 /*
- * TODO:
+ * TODO: DONE.
  *   Execute a system command by calling fork, execv(),
  *   and wait instead of system (see LSP page 161).
  *   Use the command[0] as the full path to the command to execute
@@ -59,9 +68,45 @@ bool do_exec(int count, ...)
  *
 */
 
-    va_end(args);
+    pid_t pid;
+    pid = fork();
 
-    return true;
+    // Error in creating a child.
+    if (pid == -1) {
+        perror("Failed to create a child process\n");
+        return false;
+    }
+
+    // Child process code.
+    else if (pid == 0) {
+        // Call command to be executed.
+        int ret;
+        ret = execv(command[0], command);
+
+        // Exit child process based on return value.
+        if (ret == 0)
+            exit(EXIT_SUCCESS);
+        else
+            exit(EXIT_FAILURE);
+    }
+
+    // Parent process code for post child process termination behaviour.
+    else if (pid != 0) {
+        int status;
+        wait(&status);
+
+        if (WIFEXITED(status)) {
+            // When status is 0, child process successfully exited.
+            if (WEXITSTATUS(status) == 0)
+                return true;
+
+            // Otherwise, there was an error.
+            else
+                perror("Child process exited with error\n");
+        }
+    }
+
+    return false;
 }
 
 /**
@@ -84,16 +129,73 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     // and may be removed
     command[count] = command[count];
 
+    va_end(args);
 
 /*
- * TODO
+ * TODO: DONE.
  *   Call execv, but first using https://stackoverflow.com/a/13784315/1446624 as a refernce,
  *   redirect standard out to a file specified by outputfile.
  *   The rest of the behaviour is same as do_exec()
  *
 */
 
-    va_end(args);
+    // Open the file for redirected output storage.
+    int fp = creat(outputfile, 0644);
+    if (fp < 0) {
+        perror("Failed to open outputfile\n");
+        return false;
+    }
 
-    return true;
+    // Flush the output buffer to prevent duplication of output.
+    fflush(stdout);
+
+    pid_t pid;
+    pid = fork();
+
+    // Error in creating a child.
+    if (pid == -1) {
+        perror("Failed to create a child process\n");
+        return false;
+    }
+
+    // Child process code.
+    else if (pid == 0) {
+        // Redirect the output by making the fp and output buffer equivalent using dup2.
+        if (dup2(fp, 1) == -1) {
+            perror("Error redirecting output\n");
+            return -1;
+        }
+        close(fp);
+
+        // Call command to be executed.
+        int ret;
+        ret = execv(command[0], command);
+
+        // Exit child process based on return value.
+        if (ret == 0)
+            exit(EXIT_SUCCESS);
+        else
+            exit(EXIT_FAILURE);
+    }
+
+    // Parent process code for post child process termination behaviour.
+    else if (pid != 0) {
+        // Close file for parent.
+        close(fp);
+
+        int status;
+        wait(&status);
+
+        if (WIFEXITED(status)) {
+            // When status is 0, child process successfully exited.
+            if (WEXITSTATUS(status) == 0)
+                return true;
+
+            // Otherwise, there was an error.
+            else
+                perror("Child process exited with error\n");
+        }
+    }
+
+    return false;
 }
