@@ -1,8 +1,14 @@
+CC = $(CROSS_COMPILE)gcc
+TARGET = writer
+SRC := $(TARGET).c
+OBJS := $(SRC:.c=.o)
 
-all:
-	$(CROSS_COMPILE)gcc writer.c -o writer
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) $(INCLUDES) $(OBJS) -o $(TARGET) $(LDFLAGS)
 
 clean:
 	rm -f *.o
-	rm -f writer
+	rm -f $(TARGET)
 
